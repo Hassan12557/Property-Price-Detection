@@ -20,7 +20,9 @@ def check_price_distribution(file_path, price_column_name):
     elif file_path.endswith((".xlsx", ".xls")):
         df = pd.read_excel(file_path)
     else:
-        raise ValueError("Unsupported file format. Please use a CSV or Excel file.")
+        raise ValueError(
+            "Unsupported file format. Please ensure your file path ends with .csv, .xlsx, or .xls"
+        )
 
     print(f"✅ Data loaded successfully. Shape: {df.shape}")
 
@@ -35,7 +37,6 @@ def check_price_distribution(file_path, price_column_name):
     price_data = df[price_column_name].dropna()
 
     # 3. Calculate Mathematical Skewness
-    # (Close to 0 = Balanced, > 1 = Highly Unbalanced/Right-Skewed)
     price_skewness = skew(price_data)
 
     print("\n" + "=" * 40)
@@ -61,10 +62,8 @@ def check_price_distribution(file_path, price_column_name):
     print("🎨 Generating distribution plot...")
     plt.figure(figsize=(9, 6))
 
-    # Plot histogram with Kernel Density Estimate (KDE) line
     sns.histplot(price_data, kde=True, color="crimson", bins=50)
 
-    # Add labels and details
     plt.title(
         f"Raw Price Distribution Check\n(Skewness Score: {price_skewness:.2f})",
         fontsize=14,
@@ -74,16 +73,18 @@ def check_price_distribution(file_path, price_column_name):
     plt.ylabel("Frequency (Count)", fontsize=12)
     plt.grid(axis="y", linestyle="--", alpha=0.7)
 
-    # Render plot safely inside PyCharm
     plt.tight_layout()
     plt.show()
 
 
 # --- Execution Block ---
 if __name__ == "__main__":
-    # ⚠️ REPLACE THESE VALUES WITH YOUR ACTUAL FILE PATH AND COLUMN NAME
-    DATA_PATH = "Data/Raw/zameen_properties.csv"  # Target your dataset file path
-    TARGET_COLUMN = "price"  # Change to matches your exact dataset column header (e.g., 'Price', 'price_pkr')
+    # 1. Added 'r' for a raw string to handle Windows backslashes safely
+    # 2. ⚠️ MAKE SURE TO ADD YOUR FILE EXTENSION AT THE END (e.g., .csv or .xlsx)
+    CHOSEN_FILE_PATH = r"D:\Data Science Projects\Property-Price-Detection\Data\Raw\zameen-updated.csv"
+
+    # Match this exactly to your dataset's price header
+    TARGET_COLUMN = "price"
 
     # Run the validation
-    check_price_distribution(DATA_PATH, TARGET_COLUMN)
+    check_price_distribution(CHOSEN_FILE_PATH, TARGET_COLUMN)
