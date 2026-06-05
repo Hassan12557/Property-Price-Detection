@@ -1,181 +1,179 @@
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from scipy.stats import skew
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 
-def preprocess_data(file_path, output_path):
-    """
-    Cleans the dataset by dropping unnecessary columns, filling missing cells,
-    and standardizing the date format.
+def preprocess_and_feature_engineering(file_path):
+    """Loads, cleans, extracts numerical sizes, filters imbalances, encodes,
+
+    and scales properties for machine learning.
     """
     if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Could not find the raw file at: {file_path}")
+        raise FileNotFoundError(f"Could not find raw file at: {file_path}")
 
-    print("🛠️ Starting Data Preprocessing Pipeline...")
-    
-    # 1. Load Data
-    if file_path.endswith(".csv"):
-        df = pd.read_csv(file_path)
-    elif file_path.endswith((".xlsx", ".xls")):
-        df = pd.read_excel(file_path)
-    
-    print(f"📋 Initial Shape: {df.shape}")
+    print("🔄 Step 1: Loading raw dataset...")
+    df = pd.read_csv(file_path)
+    print(f"   Initial Shape: {df.shape}")
 
-    # 2. Drop unnecessary columns (e.g., page_url)
-    col_to_drop = "page_url"
-    if col_to_drop in df.columns:
-        df = df.drop(columns=[col_to_drop])
-        print(f"🗑️ Successfully dropped column: '{col_to_drop}'")
-    else:
-        print(f"ℹ️ Column '{col_to_drop}' not found or already dropped.")
+    # --- 1. HANDLING DATA BALANCING & FILTERING ---
+    print("\n⚖️ Step 2: Balancing datasets through targeted filtering...")
 
-    # 3. Handle Empty Cells (Missing Values)
-    print("🩹 Handling missing values...")
-    missing_counts = df.isnull().sum()
-    columns_with_nas = missing_counts[missing_counts > 0]
-    
-    if len(columns_with_nas) > 0:
-        print("🔍 Found missing values in the following columns:")
-        for col, count in columns_with_nas.items():
-            print(f"   - {col}: {count} empty rows")
-        
-        # Apply specific filling strategy based on data type
-        for col in df.columns:
-            if df[col].isnull().sum() > 0:
-                if df[col].dtype in ['int64', 'float64']:
-                    # Fill numeric missing rows with median to safeguard against outliers
-                    median_val = df[col].median()
-                    df[col] = df[col].fillna(median_val)
-                else:
-                    # Fill categorical missing rows with a standard placeholder
-                    df[col] = df[col].fillna("Unknown")
-        print("✅ All empty cells filled successfully.")
-    else:
-        print("✨ Clean data record check: No empty cells found.")
+    # Filter Purpose: Isolate 'For Sale' rows to prevent target contamination
+    if "purpose" in df.columns:
+        df = df[df["purpose"] == "For Sale"]
+        df = df.drop(columns=["purpose"])
+        print("   -> Dropped rental properties; filtered strictly for 'For Sale'.")
 
-    # 4. Fix and Standardize 'date_added' Formats
-    # Handles variations like 'dateadded', 'Date Added', or 'date_added'
-    date_col = None
-    for alternative in ["date_added", "dateadded", "Date Added"]:
-        if alternative in df.columns:
-            date_col = alternative
+    # Filter Property Type: Retain major classes, drop rare outliers (< 1% representation)
+    if "property_type" in df.columns:
+        valid_types = ["House", "Flat", "Upper Portion", "Lower Portion"]
+        df = df[df["property_type"].isin(valid_types)]
+        print(f"   -> Dropped minor property types. Retained: {valid_types}")
+
+    # CLEAN AND EXTRACT NUMERIC AREA (Fixes the '5.5 Marla' string replication bug)
+    if "Area Type" in df.columns and "area" in df.columns:
+        print(
+            "   -> Extracting numbers from text area entries (e.g., '5.5 Marla' -> 5.5)..."
+        )
+
+        # Force column to string, extract decimals/integers, and convert to float
+        df["area_cleaned"] = (
+            df["area"]
+            .astype(str)
+            .str.extract(r"(\d+\.?\d*)")[0]
+            .astype(float)
+        )
+
+        # Drop rows where area extraction failed or resulted in 0
+        df = df.dropna(subset=["area_cleaned"])
+        df = df[df["area_cleaned"] > 0]
+
+        print(
+            "   -> Transforming structural 'Area Type' categories into numerical Square Feet..."
+        )
+        # Apply conversion math securely on clean floats
+        df["area_sqft"] = df.apply(
+            lambda row: (
+                row["area_cleaned"] * 4500
+                if row["Area Type"] == "Kanal"
+                else row["area_cleaned"] * 225
+            ),
+            axis=1,
+        )
+
+        # Drop raw text mapping helpers now that sizes are balanced and continuous
+        df = df.drop(
+            columns=["area", "area_cleaned", "Area Type", "Area Category"],
+            errors="ignore",
+        )
+
+    # Drop non-predictive variables to prevent index cluttering
+    df = df.drop(
+        columns=["page_url", "date_added", "location"], errors="ignore"
+    )
+
+    # --- DYNAMIC COLUMN NAME RESOLUTION FOR BEDS & BATHS ---
+    bed_col = None
+    for alt in ["bedrooms", "beds", "Bedrooms", "Beds", "beds_count"]:
+        if alt in df.columns:
+            bed_col = alt
             break
 
-    if date_col:
-        print(f"📅 Standardizing date formats in column: '{date_col}'")
-        # Rename column to a clean snake_case format for consistency
-        if date_col != "date_added":
-            df = df.rename(columns={date_col: "date_added"})
-            date_col = "date_added"
-            
-        # Convert to datetime object (errors='coerce' turns unparseable formats to NaT)
-        df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-        
-        # Fill missing dates with the most frequent date (mode)
-        if df[date_col].isnull().sum() > 0:
-            df[date_col] = df[date_col].fillna(df[date_col].mode()[0])
-            
-        # Standardize format display to YYYY-MM-DD
-        df[date_col] = df[date_col].dt.strftime('%Y-%m-%d')
-        print(f"✅ Dates standardized to YYYY-MM-DD style.")
-    else:
-        print("⚠️ Warning: No date tracking reference matching 'date_added' found.")
+    bath_col = None
+    for alt in ["bathrooms", "baths", "Bathrooms", "Baths", "baths_count"]:
+        if alt in df.columns:
+            bath_col = alt
+            break
 
-    # 5. Save the processed data file
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    df.to_csv(output_path, index=False)
-    print(f"💾 Cleaned dataset exported here: {output_path}")
-    print(f"📋 Final Cleaned Shape: {df.shape}\n" + "-"*50)
-    
-    return output_path
+    if not bed_col or not bath_col:
+        print(
+            "\n❌ CRITICAL ERROR: Could not map bathroom or bedroom columns automatically."
+        )
+        print(f"Available columns in your dataset are: {list(df.columns)}")
+        raise KeyError(
+            "Missing required structural columns. Match column names exactly."
+        )
 
+    # Standardize column headers into a unified clean name format
+    if bed_col != "bedrooms":
+        df = df.rename(columns={bed_col: "bedrooms"})
+    if bath_col != "bathrooms":
+        df = df.rename(columns={bath_col: "bathrooms"})
 
-def check_price_distribution(file_path, price_column_name):
-    """Loads the Zameen dataset and checks the balance/skewness of the price column."""
-    if file_path.endswith(".csv"):
-        df = pd.read_csv(file_path)
-    elif file_path.endswith((".xlsx", ".xls")):
-        df = pd.read_excel(file_path)
+    print(
+        f"   -> Successfully matched structural columns: '{bed_col}' ➔ 'bedrooms', '{bath_col}' ➔ 'bathrooms'"
+    )
 
-    if price_column_name not in df.columns:
-        raise KeyError(f"The column '{price_column_name}' was not found.")
+    # Handle missing value fallbacks safely using our resolved uniform names
+    df["bedrooms"] = df["bedrooms"].fillna(df["bedrooms"].median())
+    df["bathrooms"] = df["bathrooms"].fillna(df["bathrooms"].median())
+    df = df.dropna(subset=["price"])  # Eliminate target holes
 
-    price_data = df[price_column_name].dropna()
-    price_skewness = skew(price_data)
+    # Safely remove any rows with zero or negative prices before applying log1p
+    df = df[df["price"] > 0]
 
-    print("\n" + "=" * 40)
-    print(f"📊 DISTRIBUTION CHECK FOR: '{price_column_name}'")
-    print("=" * 40)
-    print(f"Calculated Skewness Score: {price_skewness:.2f}")
+    print(f"   Shape after filtering/balancing: {df.shape}")
 
-    if price_skewness > 1:
-        print("Status: UNBALANCED (Highly Right-Skewed).")
-    elif price_skewness < -1:
-        print("Status: UNBALANCED (Highly Left-Skewed).")
-    else:
-        print("Status: BALANCED (Symmetric).")
-    print("=" * 40 + "\n")
+    # --- 2. TARGET TRANSFORMATION & COV SCALE ---
+    print("\n📈 Step 3: Handling price skewness transformation...")
+    df["log_price"] = np.log1p(df["price"])
 
-    print("🎨 Generating distribution plot...")
-    plt.figure(figsize=(9, 6))
-    sns.histplot(price_data, kde=True, color="crimson", bins=50)
-    plt.title(f"Raw Price Distribution Check\n(Skewness Score: {price_skewness:.2f})", fontweight="bold")
-    plt.xlabel("Price (PKR)")
-    plt.ylabel("Frequency (Count)")
-    plt.tight_layout()
-    plt.show()
+    # Isolate targets (y) from features (X)
+    y = df["log_price"]
+    X = df.drop(columns=["price", "log_price"])
 
+    # --- 3. ONE-HOT ENCODING ---
+    print("\n🔠 Step 4: Applying One-Hot Encoding on categorical attributes...")
+    categorical_features = ["property_type", "city", "province_name"]
+    categorical_features = [col for col in categorical_features if col in X.columns]
 
-def check_categorical_balance(file_path, categorical_columns):
-    """Loads the dataset and prints the percentage representation/balance of categorical columns."""
-    if file_path.endswith(".csv"):
-        df = pd.read_csv(file_path)
-    elif file_path.endswith((".xlsx", ".xls")):
-        df = pd.read_excel(file_path)
+    X_encoded = pd.get_dummies(X, columns=categorical_features, drop_first=True)
+    print(f"   Features shape after encoding expansion: {X_encoded.shape}")
 
-    print("\n" + "=" * 50)
-    print("📊 CATEGORICAL FEATURE REPRESENTATION & BALANCE CHECK")
-    print("=" * 50)
+    # --- 4. DATASET SPLITTING ---
+    print("\n✂️ Step 5: Partitioning datasets into Train and Test matrices...")
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_encoded, y, test_size=0.2, random_state=42
+    )
+    print(f"   Training Dimensions: {X_train.shape}")
+    print(f"   Testing Dimensions: {X_test.shape}")
 
-    for col in categorical_columns:
-        if col in df.columns:
-            print(f"\n🔹 Feature: '{col}'")
-            print("-" * 40)
-            counts = df[col].value_counts(dropna=False)
-            percentages = df[col].value_counts(normalize=True, dropna=False) * 100
-            summary_df = pd.DataFrame({"Count": counts, "Percentage (%)": percentages.round(2)})
-            print(summary_df.head(10))
+    # --- 5. FEATURE SCALING ---
+    print("\n📐 Step 6: Engineering scaling features using StandardScaler...")
+    continuous_cols = ["bedrooms", "bathrooms", "area_sqft"]
 
-            top_class_pct = percentages.iloc[0]
-            if top_class_pct > 85:
-                print(f"⚠️ WARNING: '{col}' is heavily imbalanced! '{percentages.index[0]}' occupies {top_class_pct:.1f}%.")
-        else:
-            print(f"\n❌ Column '{col}' not detected.")
-    print("\n" + "=" * 50 + "\n")
+    scaler = StandardScaler()
+
+    # Fit on training data and transform both to avoid information data leakage
+    X_train_scaled = X_train.copy()
+    X_test_scaled = X_test.copy()
+
+    X_train_scaled[continuous_cols] = scaler.fit_transform(
+        X_train[continuous_cols]
+    )
+    X_test_scaled[continuous_cols] = scaler.transform(X_test[continuous_cols])
+
+    print("✅ Full preprocessing pipeline finished successfully.")
+    return X_train_scaled, X_test_scaled, y_train, y_test
 
 
 # --- Execution Block ---
 if __name__ == "__main__":
-    # Path configuration setup
     RAW_FILE_PATH = r"D:\Data Science Projects\Property-Price-Detection\Data\Raw\zameen-updated.csv"
-    PROCESSED_FILE_PATH = r"D:\Data Science Projects\Property-Price-Detection\Data\Processed\zameen_cleaned.csv"
 
-    # Step 1: Run the Preprocessing Pipeline first
-    clean_data_path = preprocess_data(RAW_FILE_PATH, PROCESSED_FILE_PATH)
+    # Process matrices directly
+    X_train, X_test, y_train, y_test = preprocess_and_feature_engineering(
+        RAW_FILE_PATH
+    )
 
-    # Step 2: Run validation checks on the newly cleaned dataset
-    TARGET_COLUMN = "price"
-    check_price_distribution(clean_data_path, TARGET_COLUMN)
-
-    CATEGORICAL_COLS = [
-        "property_type",
-        "city",
-        "province_name",
-        "location",
-        "purpose",
-        "Area Type",
-        "Area Category",
-    ]
-    check_categorical_balance(clean_data_path, CATEGORICAL_COLS)
+    # Sanity verification print
+    print("\n" + "=" * 50)
+    print("🚀 PIPELINE SUCCESS PREVIEW")
+    print("=" * 50)
+    print("First 3 processed rows of Training Features (X_train):")
+    print(X_train.head(3))
