@@ -1,0 +1,31 @@
+# Use an official, lightweight Python base runtime image
+FROM python:3.11-slim
+
+# Set system environment variables to optimize Python performance inside containers
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Set the active working directory inside the container image
+WORKDIR /app
+
+# Install system dependencies needed for compilation extensions
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy over the dependency manifesto list first to leverage Docker layer caching
+COPY requirements.txt .
+
+# Install python libraries inside the container layers
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy over your specific folders into the container root space
+COPY Api/ ./Api/
+COPY models/ ./models/
+
+# Expose the internal network port your FastAPI server runs on
+EXPOSE 8000
+
+# The startup instruction execution lane when the container spins up
+CMD ["uvicorn", "Api.main:app", "--host", "0.0.0.0", "--port", "8000"]
