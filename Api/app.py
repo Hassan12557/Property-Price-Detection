@@ -1,5 +1,4 @@
 import os
-import sys
 import joblib
 import numpy as np
 import pandas as pd
@@ -27,14 +26,13 @@ def load_production_ml_core():
     Optimizes system memory footprints by caching model binaries.
     Prevents repeated disk I/O bottlenecks during runtime execution loops.
     """
-    pipeline_asset_path = os.path.join(MODELS_DIR, "data_pipeline_assets.joblib")
-    model_checkpoint_path = os.path.join(MODELS_DIR, "model.pkl")
+    pipeline_asset_path = str(os.path.join(MODELS_DIR, "data_pipeline_assets.joblib"))
+    model_checkpoint_path = str(os.path.join(MODELS_DIR, "model.pkl"))
 
     if not os.path.exists(pipeline_asset_path) or not os.path.exists(model_checkpoint_path):
         return None, None
 
     return joblib.load(pipeline_asset_path), joblib.load(model_checkpoint_path)
-
 
 @st.cache_data
 def load_analytics_dataset():
@@ -61,7 +59,7 @@ known_locations = sorted(list(location_map.keys()))
 
 # --- SIDEBAR CONTROL ANCHOR (UX Law of Proximity / System Status Global Controls) ---
 with st.sidebar:
-    st.markdown("<h2 style='color:#1E3A8A;'>⚙️ System Diagnostics</h2>", unsafe_with_html=True)
+    st.markdown("<h2 style='color:#1E3A8A;'>⚙️ System Diagnostics</h2>", unsafe_allow_html=True)
     st.success("✅ Model Core Connected")
     st.info(f"Loaded Features: {len(feature_columns)} matrix inputs")
 
@@ -86,7 +84,7 @@ tab_app, tab_analytics = st.tabs(["🔮 Real-Time Valuation Engine", "📊 Marke
 # TAB 1: OPERATIONAL REAL-TIME VALUATION INTERFACE
 # =============================================================================
 with tab_app:
-    st.markdown("<h1 style='color: #1E3A8A;'>⚡ Property Price Valuation Engine</h1>", unsafe_with_html=True)
+    st.markdown("<h1 style='color: #1E3A8A;'>⚡ Property Price Valuation Engine</h1>", unsafe_allow_html=True)
     st.markdown(
         "Provide structural profile criteria below. Tree-based predictive pipelines compute estimates automatically.")
 
@@ -135,7 +133,7 @@ with tab_app:
                 longitude = st.number_input("Geographic Longitude Node Coordinate", format="%.6f", value=73.0479)
 
         # Fitts's Law Optimized Form Activation Target Action Link
-        st.markdown("<br>", unsafe_with_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
         compute_valuation = st.form_submit_button(label="🚀 COMPUTE SYSTEM INTERACTION INFERENCE",
                                                   use_container_width=True)
 
@@ -173,10 +171,10 @@ with tab_app:
                 <h1 style="margin: 15px 0 5px 0; font-size: 3.2em; font-weight: 800; letter-spacing: -1px;">PKR {calculated_pkr_price:,.2f}</h1>
                 <p style="margin: 0; font-size: 1.3em; font-weight: 300; color: #93C5FD;">≈ <b>{calculated_pkr_price / 10000000:.2f} Crore</b> PKR &nbsp;|&nbsp; <b>{calculated_pkr_price / 1000000:.2f} Million</b> PKR</p>
             </div>
-        """, unsafe_with_html=True)
+        """, unsafe_allow_html=True)
 
-        # Add a localized context gauge comparing target to neighborhood bounds
-        st.markdown("<br>", unsafe_with_html=True)
+        # Add a localized context gauge comparing target to neighborhood bounds+
+        st.markdown("<br>", unsafe_allow_html=True)
         loc_base_value = np.expm1(location_map.get(location, global_mean))
 
         fig_gauge = go.Figure(go.Indicator(
@@ -200,7 +198,7 @@ with tab_app:
 # TAB 2: ADVANCED SYSTEM ANALYTICS WORKSPACE
 # =============================================================================
 with tab_analytics:
-    st.markdown("<h1 style='color: #1E3A8A;'>📊 Real Estate Market Analytics Dashboard</h1>", unsafe_with_html=True)
+    st.markdown("<h1 style='color: #1E3A8A;'>📊 Real Estate Market Analytics Dashboard</h1>", unsafe_allow_html=True)
     st.markdown("Visualizing empirical trends extracted straight from the preprocessed feature matrix layers.")
 
     if analytics_df is not None:
@@ -216,7 +214,7 @@ with tab_analytics:
         with m4:
             st.metric("Unified Data Dimensionality", f"{analytics_df.shape[1]} Engine Attributes")
 
-        st.markdown("<br>", unsafe_with_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
 
         # Interactive Layout Grid
         graph_col1, graph_col2 = st.columns(2)
@@ -225,11 +223,11 @@ with tab_analytics:
             st.markdown("#### 📈 Target Value Symmetrization Curve")
             # Dynamic visualization loop
             fig_hist = px.histogram(
-                analytics_df, x="target_log_price", kde=True,
+                analytics_df, x="target_log_price", marginal="box",
                 labels={"target_log_price": "Log Price Scalar Bounds"},
                 color_discrete_sequence=["#1E3A8A"]
             )
-            fig_hist.update_layout(margin=dict(l=20, r=20, t=20, b=20), height=350)
+            fig_hist.update_layout(margin=dict(l=20, r=20, t=20, b=20), height=350,showlegend=False)
             st.plotly_chart(fig_hist, use_container_width=True)
 
         with graph_col2:
