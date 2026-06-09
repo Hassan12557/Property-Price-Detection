@@ -1,11 +1,10 @@
-version: '3.8'
-
 services:
   # --- BACKEND SERVICE CHANNEL ---
   valuation_api:
     build:
       context: .
       dockerfile: Dockerfile.api
+    image: zameen_api_image:latest
     container_name: zameen_api_service
     ports:
       - "8000:8000"
@@ -16,6 +15,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.app
+    image: zameen_app_image:latest
     container_name: zameen_streamlit_service
     ports:
       - "8501:8501"

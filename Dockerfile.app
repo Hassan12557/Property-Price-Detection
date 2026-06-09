@@ -11,10 +11,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy frontend web application requirements
-COPY Api/ ./Api/
+COPY api/ ./api/
 COPY models/ ./models/
 COPY Data/Processed/zameen_train_preprocessed.csv ./Data/Processed/zameen_train_preprocessed.csv
 
 EXPOSE 8501
 
-CMD ["streamlit", "run", "Api/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "api/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
