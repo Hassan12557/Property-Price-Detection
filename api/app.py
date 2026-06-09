@@ -223,7 +223,7 @@ with tab_analytics:
             st.markdown("#### 📈 Target Value Symmetrization Curve")
             # Dynamic visualization loop
             fig_hist = px.histogram(
-                analytics_df, x="target_log_price", marginal="box",
+                analytics_df, x="target_log_price",
                 labels={"target_log_price": "Log Price Scalar Bounds"},
                 color_discrete_sequence=["#1E3A8A"]
             )
