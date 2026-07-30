@@ -181,3 +181,9 @@ EXPOSE 7860
 
 CMD \["streamlit", "run", "api/app.py", "--server.port=7860", "--server.address=0.0.0.0"]
 
+
+here is screenshot of my application:
+<img width="954" height="577" alt="image" src="https://github.com/user-attachments/assets/d0653745-64c5-4d86-9b7f-ddeef778b5ac" />
+<img width="1280" height="600" alt="image" src="https://github.com/user-attachments/assets/15994a30-4085-4641-afa0-5280d4accb12" />
+
+
